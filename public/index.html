@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quiz Buzzer</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 500px;
+    }
+
+    /* Selection Screen */
+    .selection-screen {
+      background: white;
+      border-radius: 20px;
+      padding: 40px 30px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      text-align: center;
+    }
+
+    .selection-screen h1 {
+      color: #333;
+      margin-bottom: 30px;
+      font-size: 28px;
+    }
+
+    .role-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .role-btn {
+      padding: 20px;
+      font-size: 18px;
+      font-weight: 600;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .role-btn.contestant {
+      background: #10b981;
+      color: white;
+    }
+
+    .role-btn.contestant:hover {
+      background: #059669;
+      transform: translateY(-2px);
+    }
+
+    .role-btn.admin {
+      background: #f59e0b;
+      color: white;
+    }
+
+    .role-btn.admin:hover {
+      background: #d97706;
+      transform: translateY(-2px);
+    }
+
+    /* Contestant Number Selection */
+    .number-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+      margin-top: 20px;
+    }
+
+    .number-btn {
+      padding: 25px;
+      font-size: 24px;
+      font-weight: bold;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .number-btn:hover {
+      background: #5568d3;
+      transform: scale(1.05);
+    }
+
+    .number-btn:disabled {
+      background: #9ca3af;
+      color: #d1d5db;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .number-btn:disabled:hover {
+      transform: none;
+    }
+
+    /* Contestant Buzzer Screen */
+    .buzzer-screen {
+      text-align: center;
+      position: relative;
+    }
+
+    .leave-btn {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 40px;
+      height: 40px;
+      background: rgba(239, 68, 68, 0.9);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+
+    .leave-btn:hover {
+      background: rgba(220, 38, 38, 1);
+      transform: scale(1.1);
+    }
+
+    .contestant-info {
+      background: rgba(255,255,255,0.2);
+      backdrop-filter: blur(10px);
+      padding: 20px;
+      border-radius: 15px;
+      margin-bottom: 30px;
+    }
+
+    .contestant-number {
+      font-size: 60px;
+      font-weight: bold;
+      color: white;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .buzzer-button {
+      width: 280px;
+      height: 280px;
+      border-radius: 50%;
+      border: none;
+      font-size: 32px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .buzzer-button.active {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      color: white;
+    }
+
+    .buzzer-button.active:active {
+      transform: scale(0.95);
+    }
+
+    .buzzer-button.disabled {
+      background: #6b7280;
+      color: #9ca3af;
+      cursor: not-allowed;
+    }
+
+    .buzzer-button.winner {
+      background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+      color: #333;
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+
+    .status-text {
+      margin-top: 30px;
+      font-size: 20px;
+      font-weight: 600;
+      color: white;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+    }
+
+    /* Admin Screen */
+    .admin-screen {
+      background: white;
+      border-radius: 20px;
+      padding: 30px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+
+    .admin-screen h1 {
+      color: #333;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+
+    .contestants-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
+      margin-bottom: 30px;
+    }
+
+    .contestant-card {
+      padding: 30px;
+      border-radius: 12px;
+      text-align: center;
+      font-size: 36px;
+      font-weight: bold;
+      transition: all 0.3s;
+      background: #f3f4f6;
+      color: #6b7280;
+    }
+
+    .contestant-card.winner {
+      background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+      color: #333;
+      transform: scale(1.1);
+      box-shadow: 0 10px 30px rgba(255,215,0,0.5);
+    }
+
+    .reset-btn {
+      width: 100%;
+      padding: 20px;
+      font-size: 20px;
+      font-weight: 600;
+      background: #ef4444;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .reset-btn:hover {
+      background: #dc2626;
+    }
+
+    .reset-btn:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+    }
+
+    .connection-status {
+      text-align: center;
+      padding: 10px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      font-weight: 600;
+    }
+
+    .connection-status.connected {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    .connection-status.disconnected {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Selection Screen -->
+    <div id="selectionScreen" class="selection-screen">
+      <h1>🎯 Quiz Buzzer System</h1>
+      <div class="role-buttons">
+        <button class="role-btn contestant" onclick="selectContestant()">
+          Contestant
+        </button>
+        <button class="role-btn admin" onclick="selectAdmin()">
+          Admin
+        </button>
+      </div>
+    </div>
+
+    <!-- Contestant Number Selection -->
+    <div id="numberScreen" class="selection-screen hidden">
+      <h1>Select Your Number</h1>
+      <div class="number-grid">
+        <button class="number-btn" onclick="setNumber(1)">1</button>
+        <button class="number-btn" onclick="setNumber(2)">2</button>
+        <button class="number-btn" onclick="setNumber(3)">3</button>
+        <button class="number-btn" onclick="setNumber(4)">4</button>
+        <button class="number-btn" onclick="setNumber(5)">5</button>
+        <button class="number-btn" onclick="setNumber(6)">6</button>
+      </div>
+    </div>
+
+    <!-- Contestant Buzzer Screen -->
+    <div id="buzzerScreen" class="buzzer-screen hidden">
+      <button class="leave-btn" onclick="leaveSeat()" title="Leave seat">✕</button>
+      <div class="contestant-info">
+        <div class="contestant-number" id="contestantNumber"></div>
+      </div>
+      <button id="buzzerButton" class="buzzer-button active" onclick="buzz()">
+        BUZZ!
+      </button>
+      <div class="status-text" id="statusText">Ready to buzz!</div>
+    </div>
+
+    <!-- Admin Screen -->
+    <div id="adminScreen" class="admin-screen hidden">
+      <div class="connection-status" id="connectionStatus">Connecting...</div>
+      <h1>Admin Control</h1>
+      <div class="contestants-grid">
+        <div class="contestant-card" id="card1">1</div>
+        <div class="contestant-card" id="card2">2</div>
+        <div class="contestant-card" id="card3">3</div>
+        <div class="contestant-card" id="card4">4</div>
+        <div class="contestant-card" id="card5">5</div>
+        <div class="contestant-card" id="card6">6</div>
+      </div>
+      <button class="reset-btn" id="resetBtn" onclick="resetBuzzers()">
+        Reset Buzzers
+      </button>
+    </div>
+  </div>
+
+  <!-- Audio -->
+  <audio id="buzzSound" preload="auto">
+    <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2S55u6fTgsLUKjj8bVhGwY5k9jyzHkrBSN1xu/fkUALE12z6OqnVRIKSKDf8r1rIAUrlc/y2og2CBdmsOrtnEwKC1Cn4/G1YRsGOpPY88t4KgUjdcbw3Y9ACxNftOjqp1QSCkih4PK9aiAFK5fP8tmINQgXZ7Dq7ZtNCAU=" type="audio/wav">
+  </audio>
+
+  <script>
+    let ws;
+    let myNumber = null;
+    let isAdmin = false;
+    let occupiedSeats = new Set();
+    const buzzSound = document.getElementById('buzzSound');
+
+    // Check localStorage for saved role/number
+    window.onload = () => {
+      const savedRole = localStorage.getItem('quizRole');
+      const savedNumber = localStorage.getItem('quizNumber');
+
+      if (savedRole === 'admin') {
+        selectAdmin();
+      } else if (savedRole === 'contestant' && savedNumber) {
+        myNumber = parseInt(savedNumber);
+        showBuzzerScreen();
+      }
+    };
+
+    function selectContestant() {
+      document.getElementById('selectionScreen').classList.add('hidden');
+      document.getElementById('numberScreen').classList.remove('hidden');
+      localStorage.setItem('quizRole', 'contestant');
+      
+      // Request current occupied seats
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        connectWebSocket(() => {
+          ws.send(JSON.stringify({ type: 'get_seats' }));
+        });
+      } else {
+        ws.send(JSON.stringify({ type: 'get_seats' }));
+      }
+    }
+
+    function selectAdmin() {
+      isAdmin = true;
+      localStorage.setItem('quizRole', 'admin');
+      localStorage.removeItem('quizNumber');
+      document.getElementById('selectionScreen').classList.add('hidden');
+      document.getElementById('adminScreen').classList.remove('hidden');
+      connectWebSocket();
+    }
+
+    function setNumber(num) {
+      if (occupiedSeats.has(num)) {
+        alert('This seat is already taken. Please choose another.');
+        return;
+      }
+
+      myNumber = num;
+      localStorage.setItem('quizNumber', num);
+      showBuzzerScreen();
+    }
+
+    function showBuzzerScreen() {
+      document.getElementById('selectionScreen').classList.add('hidden');
+      document.getElementById('numberScreen').classList.add('hidden');
+      document.getElementById('buzzerScreen').classList.remove('hidden');
+      document.getElementById('contestantNumber').textContent = myNumber;
+      connectWebSocket();
+    }
+
+    function connectWebSocket(onConnectCallback) {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${protocol}//${window.location.host}`);
+
+      ws.onopen = () => {
+        console.log('Connected to server');
+        if (isAdmin) {
+          updateConnectionStatus(true);
+        }
+        if (myNumber && !isAdmin) {
+          ws.send(JSON.stringify({
+            type: 'register',
+            contestant: myNumber
+          }));
+        }
+        if (onConnectCallback) onConnectCallback();
+      };
+
+      ws.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        
+        if (message.type === 'buzzed') {
+          handleBuzzed(message.data);
+        } else if (message.type === 'reset') {
+          handleReset();
+        } else if (message.type === 'state') {
+          // Handle initial state
+          if (message.data.locked) {
+            handleBuzzed({ contestant: message.data.winner, locked: true });
+          }
+        } else if (message.type === 'seats_update') {
+          updateOccupiedSeats(message.data.occupiedSeats);
+        } else if (message.type === 'seat_taken') {
+          handleSeatTaken(message.data.contestant);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        if (isAdmin) updateConnectionStatus(false);
+      };
+
+      ws.onclose = () => {
+        console.log('Disconnected from server');
+        if (isAdmin) updateConnectionStatus(false);
+        // Reconnect after 2 seconds
+        setTimeout(() => connectWebSocket(), 2000);
+      };
+    }
+
+    function updateOccupiedSeats(seats) {
+      occupiedSeats = new Set(seats);
+      
+      // Update number selection buttons
+      for (let i = 1; i <= 6; i++) {
+        const btn = document.querySelector(`.number-btn[onclick="setNumber(${i})"]`);
+        if (btn) {
+          btn.disabled = occupiedSeats.has(i);
+        }
+      }
+    }
+
+    function handleSeatTaken(seatNum) {
+      alert(`Seat ${seatNum} was just taken by someone else. Please choose another.`);
+      myNumber = null;
+      localStorage.removeItem('quizNumber');
+      
+      // Go back to number selection
+      document.getElementById('buzzerScreen').classList.add('hidden');
+      document.getElementById('numberScreen').classList.remove('hidden');
+      
+      // Request updated seats
+      ws.send(JSON.stringify({ type: 'get_seats' }));
+    }
+
+    function leaveSeat() {
+      if (confirm('Are you sure you want to leave this seat?')) {
+        ws.send(JSON.stringify({
+          type: 'leave_seat',
+          contestant: myNumber
+        }));
+
+        myNumber = null;
+        localStorage.removeItem('quizNumber');
+        localStorage.removeItem('quizRole');
+
+        // Go back to selection screen
+        document.getElementById('buzzerScreen').classList.add('hidden');
+        document.getElementById('selectionScreen').classList.remove('hidden');
+      }
+    }
+
+    function buzz() {
+      const button = document.getElementById('buzzerButton');
+      if (!button.classList.contains('active')) return;
+
+      ws.send(JSON.stringify({
+        type: 'buzz',
+        contestant: myNumber
+      }));
+    }
+
+    function handleBuzzed(data) {
+      if (isAdmin) {
+        // Admin view
+        buzzSound.play().catch(e => console.log('Audio play failed:', e));
+        
+        for (let i = 1; i <= 6; i++) {
+          const card = document.getElementById(`card${i}`);
+          if (i === data.contestant) {
+            card.classList.add('winner');
+          } else {
+            card.classList.remove('winner');
+          }
+        }
+        document.getElementById('resetBtn').disabled = false;
+      } else {
+        // Contestant view
+        const button = document.getElementById('buzzerButton');
+        const status = document.getElementById('statusText');
+        
+        if (data.contestant === myNumber) {
+          button.classList.remove('active');
+          button.classList.add('winner');
+          status.textContent = '🎉 You buzzed first!';
+        } else {
+          button.classList.remove('active');
+          button.classList.add('disabled');
+          status.textContent = `Contestant ${data.contestant} buzzed first`;
+        }
+      }
+    }
+
+    function handleReset() {
+      if (isAdmin) {
+        // Admin view
+        for (let i = 1; i <= 6; i++) {
+          document.getElementById(`card${i}`).classList.remove('winner');
+        }
+        document.getElementById('resetBtn').disabled = true;
+      } else {
+        // Contestant view
+        const button = document.getElementById('buzzerButton');
+        const status = document.getElementById('statusText');
+        
+        button.classList.remove('disabled', 'winner');
+        button.classList.add('active');
+        status.textContent = 'Ready to buzz!';
+      }
+    }
+
+    function resetBuzzers() {
+      ws.send(JSON.stringify({ type: 'reset' }));
+    }
+
+    function updateConnectionStatus(connected) {
+      const status = document.getElementById('connectionStatus');
+      if (connected) {
+        status.textContent = '✓ Connected';
+        status.className = 'connection-status connected';
+      } else {
+        status.textContent = '✗ Disconnected - Reconnecting...';
+        status.className = 'connection-status disconnected';
+      }
+    }
+  </script>
+</body>
+</html>
