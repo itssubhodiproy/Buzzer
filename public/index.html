@@ -77,6 +77,57 @@
       transform: translateY(-2px);
     }
 
+    .role-btn:disabled {
+      background: #9ca3af;
+      color: #d1d5db;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .role-btn:disabled:hover {
+      transform: none;
+    }
+
+    /* Admin Password Screen */
+    .password-input {
+      width: 100%;
+      padding: 15px;
+      font-size: 16px;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      transition: border 0.3s;
+    }
+
+    .password-input:focus {
+      outline: none;
+      border-color: #f59e0b;
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 15px;
+      font-size: 18px;
+      font-weight: 600;
+      background: #f59e0b;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .submit-btn:hover {
+      background: #d97706;
+    }
+
+    .error-msg {
+      color: #ef4444;
+      font-size: 14px;
+      margin-top: 10px;
+      text-align: center;
+    }
+
     /* Contestant Number Selection */
     .number-grid {
       display: grid;
@@ -117,25 +168,28 @@
     .buzzer-screen {
       text-align: center;
       position: relative;
+      padding-top: 50px;
     }
 
     .leave-btn {
       position: absolute;
-      top: 0;
-      right: 0;
-      width: 40px;
-      height: 40px;
+      top: 10px;
+      right: 10px;
+      width: 36px;
+      height: 36px;
       background: rgba(239, 68, 68, 0.9);
       color: white;
       border: none;
       border-radius: 50%;
-      font-size: 20px;
+      font-size: 18px;
+      line-height: 1;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       transition: all 0.3s;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      z-index: 10;
     }
 
     .leave-btn:hover {
@@ -212,12 +266,20 @@
       border-radius: 20px;
       padding: 30px;
       box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      position: relative;
+      padding-top: 60px;
     }
 
     .admin-screen h1 {
       color: #333;
       margin-bottom: 30px;
       text-align: center;
+    }
+
+    .admin-screen .leave-btn {
+      position: absolute;
+      top: 15px;
+      right: 15px;
     }
 
     .contestants-grid {
@@ -299,10 +361,24 @@
         <button class="role-btn contestant" onclick="selectContestant()">
           Contestant
         </button>
-        <button class="role-btn admin" onclick="selectAdmin()">
+        <button id="adminBtn" class="role-btn admin" onclick="selectAdmin()">
           Admin
         </button>
       </div>
+    </div>
+
+    <!-- Admin Password Screen -->
+    <div id="passwordScreen" class="selection-screen hidden">
+      <h1>Admin Login</h1>
+      <input 
+        type="password" 
+        id="passwordInput" 
+        class="password-input" 
+        placeholder="Enter admin password"
+        onkeypress="if(event.key==='Enter') submitPassword()"
+      />
+      <button class="submit-btn" onclick="submitPassword()">Login</button>
+      <div id="errorMsg" class="error-msg"></div>
     </div>
 
     <!-- Contestant Number Selection -->
@@ -332,6 +408,7 @@
 
     <!-- Admin Screen -->
     <div id="adminScreen" class="admin-screen hidden">
+      <button class="leave-btn" onclick="logoutAdmin()" title="Logout">✕</button>
       <div class="connection-status" id="connectionStatus">Connecting...</div>
       <h1>Admin Control</h1>
       <div class="contestants-grid">
@@ -358,6 +435,7 @@
     let myNumber = null;
     let isAdmin = false;
     let occupiedSeats = new Set();
+    let adminLoggedIn = false;
     const buzzSound = document.getElementById('buzzSound');
 
     // Check localStorage for saved role/number
@@ -365,12 +443,17 @@
       const savedRole = localStorage.getItem('quizRole');
       const savedNumber = localStorage.getItem('quizNumber');
 
-      if (savedRole === 'admin') {
-        selectAdmin();
-      } else if (savedRole === 'contestant' && savedNumber) {
-        myNumber = parseInt(savedNumber);
-        showBuzzerScreen();
-      }
+      // Connect WebSocket first
+      connectWebSocket(() => {
+        if (savedRole === 'admin') {
+          // Check if admin is available
+          ws.send(JSON.stringify({ type: 'check_admin' }));
+        } else if (savedRole === 'contestant' && savedNumber) {
+          myNumber = parseInt(savedNumber);
+          // Will check seat availability via WebSocket
+          ws.send(JSON.stringify({ type: 'get_seats' }));
+        }
+      });
     };
 
     function selectContestant() {
@@ -389,12 +472,55 @@
     }
 
     function selectAdmin() {
+      // First connect to WebSocket if not connected
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        connectWebSocket(() => {
+          ws.send(JSON.stringify({ type: 'check_admin' }));
+        });
+      } else {
+        ws.send(JSON.stringify({ type: 'check_admin' }));
+      }
+      
+      document.getElementById('selectionScreen').classList.add('hidden');
+      document.getElementById('passwordScreen').classList.remove('hidden');
+    }
+
+    function submitPassword() {
+      const password = document.getElementById('passwordInput').value;
+      const errorMsg = document.getElementById('errorMsg');
+
+      if (!password) {
+        errorMsg.textContent = 'Please enter a password';
+        return;
+      }
+
+      ws.send(JSON.stringify({
+        type: 'admin_login',
+        password: password
+      }));
+    }
+
+    function showAdminScreen() {
       isAdmin = true;
       localStorage.setItem('quizRole', 'admin');
-      localStorage.removeItem('quizNumber');
-      document.getElementById('selectionScreen').classList.add('hidden');
+      document.getElementById('passwordScreen').classList.add('hidden');
       document.getElementById('adminScreen').classList.remove('hidden');
-      connectWebSocket();
+    }
+
+    function logoutAdmin() {
+      if (confirm('Are you sure you want to logout?')) {
+        ws.send(JSON.stringify({ type: 'admin_logout' }));
+        
+        isAdmin = false;
+        localStorage.removeItem('quizRole');
+        
+        document.getElementById('adminScreen').classList.add('hidden');
+        document.getElementById('selectionScreen').classList.remove('hidden');
+        
+        // Clear password field
+        document.getElementById('passwordInput').value = '';
+        document.getElementById('errorMsg').textContent = '';
+      }
     }
 
     function setNumber(num) {
@@ -413,7 +539,16 @@
       document.getElementById('numberScreen').classList.add('hidden');
       document.getElementById('buzzerScreen').classList.remove('hidden');
       document.getElementById('contestantNumber').textContent = myNumber;
-      connectWebSocket();
+      
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        connectWebSocket();
+      } else {
+        // Register contestant
+        ws.send(JSON.stringify({
+          type: 'register',
+          contestant: myNumber
+        }));
+      }
     }
 
     function connectWebSocket(onConnectCallback) {
@@ -425,12 +560,12 @@
         if (isAdmin) {
           updateConnectionStatus(true);
         }
-        if (myNumber && !isAdmin) {
-          ws.send(JSON.stringify({
-            type: 'register',
-            contestant: myNumber
-          }));
-        }
+        
+        // Don't auto-register here, it will be done in showBuzzerScreen
+        
+        // Request admin status to update UI
+        ws.send(JSON.stringify({ type: 'check_admin' }));
+        
         if (onConnectCallback) onConnectCallback();
       };
 
@@ -450,6 +585,14 @@
           updateOccupiedSeats(message.data.occupiedSeats);
         } else if (message.type === 'seat_taken') {
           handleSeatTaken(message.data.contestant);
+        } else if (message.type === 'admin_status') {
+          handleAdminStatus(message.data.adminLoggedIn);
+        } else if (message.type === 'admin_success') {
+          showAdminScreen();
+        } else if (message.type === 'admin_failed') {
+          document.getElementById('errorMsg').textContent = 'Incorrect password';
+        } else if (message.type === 'admin_taken') {
+          document.getElementById('errorMsg').textContent = 'Admin is already logged in';
         }
       };
 
@@ -464,6 +607,44 @@
         // Reconnect after 2 seconds
         setTimeout(() => connectWebSocket(), 2000);
       };
+    }
+
+    function handleAdminStatus(isLoggedIn) {
+      adminLoggedIn = isLoggedIn;
+      
+      // Update Admin button on selection screen
+      const adminBtn = document.getElementById('adminBtn');
+      if (adminBtn) {
+        adminBtn.disabled = isLoggedIn;
+      }
+
+      // If returning user and admin was their role but now taken
+      const savedRole = localStorage.getItem('quizRole');
+      if (savedRole === 'admin' && isLoggedIn && !isAdmin) {
+        // Admin is taken by someone else
+        localStorage.removeItem('quizRole');
+        alert('Admin is already logged in by someone else');
+      } else if (savedRole === 'admin' && !isLoggedIn) {
+        // Admin is available, show password screen
+        document.getElementById('selectionScreen').classList.add('hidden');
+        document.getElementById('passwordScreen').classList.remove('hidden');
+      }
+
+      // Handle contestant seat validation ONLY for returning users
+      const savedNumber = localStorage.getItem('quizNumber');
+      if (savedRole === 'contestant' && savedNumber && !myNumber) {
+        // This is a returning user (myNumber not set yet)
+        const seatNum = parseInt(savedNumber);
+        if (occupiedSeats.has(seatNum)) {
+          // Seat was taken by someone else
+          alert(`Your seat ${seatNum} is now occupied. Please choose another.`);
+          localStorage.removeItem('quizNumber');
+        } else {
+          // Seat is available, proceed
+          myNumber = seatNum;
+          showBuzzerScreen();
+        }
+      }
     }
 
     function updateOccupiedSeats(seats) {
@@ -493,9 +674,11 @@
 
     function leaveSeat() {
       if (confirm('Are you sure you want to leave this seat?')) {
+        const seatToLeave = myNumber; // Save it before clearing
+        
         ws.send(JSON.stringify({
           type: 'leave_seat',
-          contestant: myNumber
+          contestant: seatToLeave
         }));
 
         myNumber = null;
